@@ -1,0 +1,63 @@
+name: ci
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+# Pages needs these; the deploy job below is the only consumer.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # The 74 encoded variants are not committed. They are rebuilt here from the seven sources,
+      # which is only safe because the pipeline is deterministic: fixed dither seed, fixed encoder
+      # settings, no timestamp in the manifest. See docs/adr/0005.
+      - name: Grade and encode the scenes
+        run: npm run assets
+
+      # Proves that determinism rather than assuming it: every variant's byte count on disk must
+      # match what the manifest recorded. A mismatch means the encode settings changed.
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Check the shipped JS stays inside its budget
+        run: node pipeline/check-budget.mjs
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    # Only main deploys; every other branch still runs the full build and tests above.
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
