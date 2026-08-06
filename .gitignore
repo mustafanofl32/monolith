@@ -8,3 +8,7 @@ graphify-out/
 # pipeline scripts; only the final public assets are committed.
 src/scenes/graded/
 tmp/
+
+# Build output. The pipeline is deterministic — fixed dither seed, fixed encoder settings —
+# so CI reproduces these byte-identically from the seven sources in src/scenes/.
+public/scenes/
