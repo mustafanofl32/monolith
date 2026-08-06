@@ -12,3 +12,7 @@ tmp/
 # Build output. The pipeline is deterministic — fixed dither seed, fixed encoder settings —
 # so CI reproduces these byte-identically from the seven sources in src/scenes/.
 public/scenes/
+
+# The generated video was assessed and excluded (docs/adr/0010). The probe scripts stay;
+# 2.4 MB of rejected source does not.
+src/video/
