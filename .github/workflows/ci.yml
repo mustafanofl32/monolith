@@ -29,22 +29,44 @@ jobs:
 
       - run: npm ci
 
+      # The smoke tests drive a real browser against the real build. Chromium only — the other two
+      # engines are not what this was measured on, and the README says so rather than implying
+      # coverage that does not exist.
+      - name: Install Chromium for the smoke tests
+        run: npx playwright install --with-deps chromium
+
       # The 74 encoded variants are not committed. They are rebuilt here from the seven sources,
       # which is only safe because the pipeline is deterministic: fixed dither seed, fixed encoder
       # settings, no timestamp in the manifest. See docs/adr/0005.
       - name: Grade and encode the scenes
         run: npm run assets
 
-      # Proves that determinism rather than assuming it: every variant's byte count on disk must
-      # match what the manifest recorded. A mismatch means the encode settings changed.
-      - name: Test
-        run: npm test
-
+      # Built before the tests run, because the smoke tests serve dist/ and skip themselves if it
+      # is missing. A skipped smoke test that still reports green is worse than no smoke test.
       - name: Build
         run: npm run build
 
-      - name: Check the shipped JS stays inside its budget
-        run: node pipeline/check-budget.mjs
+      # Proves that determinism rather than assuming it: every variant's byte count on disk must
+      # match what the manifest recorded. A mismatch means the encode settings changed.
+      #
+      # The coverage threshold is what keeps the README's badge honest. It is set below the current
+      # figure (91.3%) so a small refactor does not fail the build, but a module losing its tests
+      # does.
+      - name: Test
+        run: node --test --experimental-test-coverage --test-coverage-lines=85 "tests/**/*.test.js"
+
+      # Guards against a skipped-but-green smoke test: if dist/ or Chromium were missing, these
+      # would have skipped silently and the build would still have passed.
+      - name: Assert the smoke tests actually ran
+        run: |
+          node --test --test-reporter=tap "tests/smoke.test.js" | tee /tmp/smoke.tap
+          if grep -q "SKIP" /tmp/smoke.tap; then
+            echo "::error::smoke tests were skipped, not run"
+            exit 1
+          fi
+
+      - name: Check the shipped payload stays inside its budget
+        run: npm run budget
 
       - uses: actions/upload-pages-artifact@v3
         with:

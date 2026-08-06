@@ -1,5 +1,11 @@
 # MONOLITH
 
+[![ci](https://github.com/mustafanofl32/monolith/actions/workflows/ci.yml/badge.svg)](https://github.com/mustafanofl32/monolith/actions/workflows/ci.yml)
+[![coverage](https://img.shields.io/badge/coverage-91%25%20lines-brightgreen)](#tests)
+[![tests](https://img.shields.io/badge/tests-37%20passing-brightgreen)](#tests)
+[![js](https://img.shields.io/badge/initial%20JS-6.5%20kB%20gzip-brightgreen)](#budget--1440900-throttled-to-5-mbps--40-ms-rtt--4-cpu)
+[![deps](https://img.shields.io/badge/runtime%20deps-0-blue)](#stack)
+
 A scroll-driven study in light. Seven images, seven scenes, six transitions, one canvas.
 
 The scroll wheel is the clock: every frame is composited from the current scroll position, so
@@ -25,10 +31,38 @@ npm run dev        # http://localhost:5173
 (see [ADR 5](docs/adr/0005-build-assets-in-ci-not-commit-them.md)).
 
 ```bash
-npm test           # 29 unit + contract tests, no browser needed
+npm test           # 37 tests
 npm run build && npm run preview
 node pipeline/verify.mjs http://localhost:4173 tmp/verify   # the measurements below
 ```
+
+Adding an eighth scene is a pipeline change, not a code change —
+[worked example](docs/adding-a-scene.md). Contributions:
+[CONTRIBUTING.md](CONTRIBUTING.md).
+
+<a id="tests"></a>
+
+### Tests
+
+37 tests on `node:test`. No framework, no runner, no config file.
+
+| | |
+|---|---|
+| `scroll-model.test.js` | ranges tile without gaps, bands never overlap each other, scene progress stays continuous across a band, residency is bounded |
+| `geometry.test.js` | cover-fit never letterboxes or samples outside the bitmap at any aspect, variant width is capped by CSS width, URL-bar collapse is not a resize |
+| `easing-solver.test.js` | every shipped curve inverts correctly, and the solver survives a curve that stalls Newton-Raphson outright |
+| `manifest.test.js` | every promised variant exists at the byte size the manifest claims, nothing is upscaled, no scene filename appears outside the manifest |
+| `smoke.test.js` | a real browser against a real production build: boots, composites at all six transition midpoints in both directions, ≤ 3 bitmaps resident, zero console errors, and reduced motion yields a document rather than a disabled animation |
+
+**Coverage is 91.3% of lines** across the four DOM-free modules, enforced at 85% in CI. The
+uncovered remainder is `measureViewport` and the codec-support probe, which need a real `window`
+and a real decoder — those are covered by the smoke test instead of by a mock, because a mock of
+`createImageBitmap` would only be testing the mock.
+
+Three tests exist because the bug already happened: expo-out front-loading a scroll-driven
+transition, a scene filename leaking out of the manifest, and the spacer being one viewport too
+tall. The easing solver test was written to verify a claim in a code comment and **disproved it** —
+see below.
 
 ---
 
@@ -302,6 +336,27 @@ cheap. Two platform typefaces, one accent colour used three times, a strict 4 px
   That is why the 01→02 pair is missing from the convergence table above rather than wrong in it.
 - **No scroll-snapping.** A scrollbar drag lands wherever it lands; beyond 20% of total scroll the
   follower stops chasing and cuts, because a drag should arrive rather than glide.
+
+## A comment that turned out to be wrong
+
+`easing.js` carried this, for weeks, in the file that every transition depends on:
+
+> falling back to bisection where the curve is too flat for Newton to converge — which is exactly
+> what happens in the long tail of expo-out, so the fallback is load-bearing here rather than
+> defensive boilerplate
+
+Writing a test for that claim disproved it twice over. Four Newton iterations leave a worst-case
+residual of **1.3e-11** on expo-out, so the fallback never runs for any curve this site ships. And
+the fallback could not have rescued the case it was written for anyway: it triggered on
+`t < 0 || t > 1`, but when Newton stalls on the min-slope guard it returns a `t` that is *wrong and
+still inside the range* — so bisection was skipped and the curve came back non-monotonic.
+
+Both are fixed: the fallback now triggers on the residual rather than on the range, and the comment
+says what the code does. The test that found it is four assertions long.
+
+The general lesson, and the reason it is in the README rather than buried in a commit: a comment
+asserting *why* code exists is a claim, and an untested claim in a load-bearing file is just a
+confident guess that nobody has checked.
 
 ## The video that is not here
 
