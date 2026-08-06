@@ -5,7 +5,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildModel, locate, residentSet, TRANSITIONS } from '../src/scroll-model.js';
+import { buildModel, locate, residentSet, describe as describeModel, TRANSITIONS } from '../src/scroll-model.js';
 
 const VIEWPORTS = [400, 640, 812, 900, 1024, 1440];
 
@@ -93,6 +93,28 @@ test('there is one transition per band and each is named', () => {
     assert.equal(typeof band.transition, 'string');
     assert.ok(band.length > 0, 'a zero-length band would divide by zero in locate()');
   }
+});
+
+test('a NaN or non-finite offset lands on the last scene rather than throwing', () => {
+  // The renderer clamps before calling locate(), but a resize mid-frame can briefly produce a
+  // model whose totalScroll is smaller than the current position. Falling off the end must be a
+  // held final frame, not an exception inside rAF.
+  const model = buildModel(900);
+  for (const y of [NaN, Infinity, -Infinity]) {
+    const at = locate(model, y);
+    assert.ok(at.primary >= 0 && at.primary < 7, `y ${y}`);
+    assert.equal(at.band, null, `y ${y}`);
+  }
+});
+
+test('describe() reports every scene, every band, and the in-band share', () => {
+  // `npm run model` is how the scroll arithmetic gets checked by hand, so its output is part of
+  // the contract rather than a debug print.
+  const text = describeModel(buildModel(900));
+  for (let i = 1; i <= 7; i++) assert.match(text, new RegExp(`^0${i}\\s`, 'm'), `scene 0${i} missing`);
+  for (const name of TRANSITIONS) assert.ok(text.includes(name), `${name} missing`);
+  assert.match(text, /total scroll \d+px\s+document \d+px\s+in-band \d+px \(\d+\.\d%\)/);
+  assert.ok(text.includes('viewport 900px'));
 });
 
 test('scenes 06 and 07 keep real solo time around the slowest transition', () => {
