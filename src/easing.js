@@ -58,7 +58,9 @@ export const SCALE_OUT = [0.22, 1, 0.36, 1];
 const NEWTON_ITERATIONS = 4;
 const NEWTON_MIN_SLOPE = 0.001;
 const SUBDIVISION_EPSILON = 1e-7;
-const SUBDIVISION_MAX = 12;
+// 24 halvings resolves 1/2^24, which is what it takes to actually reach SUBDIVISION_EPSILON.
+// At 12 the loop always exhausted its budget before converging.
+const SUBDIVISION_MAX = 24;
 
 const A = (a1, a2) => 1 - 3 * a2 + 3 * a1;
 const B = (a1, a2) => 3 * a2 - 6 * a1;
@@ -75,9 +77,14 @@ function slope(t, a1, a2) {
 /**
  * Builds an easing function from four control-point coordinates.
  *
- * Solves x(t) = progress for t by Newton-Raphson, falling back to bisection where the curve is
- * too flat for Newton to converge — which is exactly what happens in the long tail of expo-out,
- * so the fallback is load-bearing here rather than defensive boilerplate.
+ * Solves x(t) = progress for t by Newton-Raphson, falling back to bisection when Newton fails to
+ * converge.
+ *
+ * An earlier version of this comment claimed the fallback was load-bearing for expo-out's flat
+ * tail. Measured, that is false: four Newton iterations leave a worst-case residual of 1.3e-11 on
+ * expo-out and better on the other three, so bisection never runs for any curve this site ships
+ * and costs nothing per frame. It exists for curves with a near-zero slope inside the solved
+ * range, where Newton stalls on the min-slope guard — see tests/easing-solver.test.js.
  */
 export function cubicBezier([x1, y1, x2, y2]) {
   if (x1 === y1 && x2 === y2) return (t) => t;
@@ -93,7 +100,11 @@ export function cubicBezier([x1, y1, x2, y2]) {
       t -= (bezier(t, x1, x2) - progress) / currentSlope;
     }
 
-    if (t < 0 || t > 1 || Number.isNaN(t)) {
+    // Fall back on CONVERGENCE, not merely on range. Testing `t < 0 || t > 1` alone misses the
+    // failure that actually happens: where the curve is flat, Newton breaks out early on the
+    // min-slope guard and leaves a `t` that is wrong but still inside [0,1], so bisection never
+    // ran and the returned curve came back non-monotonic. Checking the residual catches both.
+    if (t < 0 || t > 1 || Number.isNaN(t) || Math.abs(bezier(t, x1, x2) - progress) > SUBDIVISION_EPSILON) {
       let lo = 0;
       let hi = 1;
       t = progress;
