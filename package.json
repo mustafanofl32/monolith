@@ -18,6 +18,7 @@
     "preview": "vite preview --port 4173 --strictPort"
   },
   "devDependencies": {
+    "playwright": "^1.62.1",
     "sharp": "^0.34.2",
     "vite": "^6.0.5"
   },

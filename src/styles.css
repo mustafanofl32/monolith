@@ -1,0 +1,87 @@
+/*
+ * Phase 3 styles only — enough to position the canvas correctly and nothing else.
+ * No typography, no grain, no vignette. Those land in Phases 4 and 5.
+ */
+
+:root {
+  --ground: #0b0b0c;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  /* The follower already smooths playback. Letting the browser also animate scroll would stack
+     two independent easings, and the page must move at exactly the speed the user scrolls it. */
+  scroll-behavior: auto;
+  background: var(--ground);
+}
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: #e8e6e1;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+/*
+ * svh, not vh or dvh.
+ *
+ *   dvh tracks the collapsing mobile URL bar, so it changes mid-scroll — the stage would resize
+ *       under the user during a gesture.
+ *   vh  is the large viewport, so on mobile the stage is taller than the visible area and the
+ *       bottom of every scene sits under the browser chrome.
+ *   svh is the small viewport and is stable during scroll: nothing is ever clipped, and nothing
+ *       moves while the user is moving.
+ *
+ * The scroll model's arithmetic does not come from this value — it is measured in JS and only
+ * recomputed on a real resize. This is layout only.
+ */
+.stage {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  overflow: hidden;
+  z-index: 0;
+}
+
+@supports not (height: 100svh) {
+  .stage {
+    height: 100vh;
+  }
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--ground);
+}
+
+/* Supplies the scroll distance. Height is assigned from the resolved model in JS. */
+.spacer {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Reduced motion: one deliberate still, ordinary document flow. */
+body[data-mode='still'] .stage {
+  position: static;
+  height: auto;
+}
+
+.still {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.failure {
+  padding: 2rem 1.5rem;
+  color: #d6a97f;
+  font-family: ui-monospace, monospace;
+}

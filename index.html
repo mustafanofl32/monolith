@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MONOLITH</title>
+    <meta name="description" content="A study in scroll-driven light." />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230b0b0c'/><rect x='6' y='3' width='4' height='10' fill='%23D4A04C'/></svg>" />
+  </head>
+  <body>
+    <!--
+      Phase 3: the engine only. No typography, no grain, no vignette, no preloader.
+      The sticky stage holds the canvas; the spacer below it supplies the scroll distance the
+      model asks for. Its height is set in JS from the resolved model, never from a CSS unit —
+      100dvh in particular tracks the collapsing mobile URL bar and would move every scene
+      boundary mid-gesture.
+    -->
+    <div class="stage" data-stage>
+      <canvas data-canvas></canvas>
+    </div>
+    <div class="spacer" data-spacer></div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
