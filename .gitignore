@@ -1,0 +1,10 @@
+node_modules/
+.env
+dist/
+build/
+graphify-out/
+
+# Intermediate grade/encode output is reproducible from src/scenes/ via the
+# pipeline scripts; only the final public assets are committed.
+src/scenes/graded/
+tmp/

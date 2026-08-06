@@ -1,0 +1,27 @@
+{
+  "name": "monolith",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Seven images, seven scenes, one scroll-driven journey",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "analyse": "node pipeline/analyse.mjs",
+    "grade": "node pipeline/grade.mjs",
+    "encode": "node pipeline/encode.mjs",
+    "assets": "npm run grade && npm run encode",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4173 --strictPort"
+  },
+  "devDependencies": {
+    "sharp": "^0.34.2",
+    "vite": "^6.0.5"
+  },
+  "allowScripts": {
+    "sharp@0.34.5": true
+  }
+}
