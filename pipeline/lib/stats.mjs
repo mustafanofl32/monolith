@@ -13,11 +13,30 @@ import sharp from 'sharp';
  *  buys nothing and costs ~10x the time across seven 4.2 MP images. */
 const ANALYSIS_WIDTH = 800;
 
-export async function samplePixels(file) {
-  const { data, info } = await sharp(file)
+/**
+ * @param region optional `extract`-shaped content region. Passing it matters: `01-void` carries a
+ *   364-row black matte, and measuring the container rather than the content is where its
+ *   black point of 0 came from.
+ */
+export async function samplePixels(file, region = null) {
+  let pipe = sharp(file);
+  if (region?.cropped) {
+    pipe = pipe.extract({
+      left: region.left,
+      top: region.top,
+      width: region.width,
+      height: region.height,
+    });
+  }
+  const { data, info } = await pipe
     .resize({ width: ANALYSIS_WIDTH, fit: 'inside' })
     .removeAlpha()
-    .raw()
+    // Force 8-bit. The graded intermediates are 16-bit PNGs, and a bare .raw() on those returns
+    // two bytes per channel — read as consecutive bytes that silently interleaves high and low
+    // bytes into nonsense while still producing a plausible-looking table. Analysis is
+    // statistical and the final encode is 8-bit anyway, so measuring at 8 bits is correct here.
+    .toColourspace('srgb')
+    .raw({ depth: 'uchar' })
     .toBuffer({ resolveWithObject: true });
   return { data, pixels: info.width * info.height };
 }
@@ -38,7 +57,19 @@ export function luma(r, g, b) {
  * to grey excludes the accent from both the measurement and the target, so the cast is corrected
  * and the amber is left exactly where the artist put it.
  */
-const NEUTRAL_SPREAD = 32;
+/**
+ * Measured as a FRACTION of the pixel's own brightness, not as an absolute channel difference.
+ *
+ * An absolute threshold silently fails on dark images. A pixel of R=20 G=14 B=8 is emphatically
+ * amber, but its channel spread is only 12 — under any absolute threshold loose enough to be
+ * useful, so it counts as neutral and drags the measurement warm. That is exactly what happened
+ * to `01-void` once its matte was cropped: the amber glow became a larger share of a very dark
+ * frame and pulled its measured neutral to 4147K, which is a reading of the accent, not the cast.
+ *
+ * Relative spread asks the right question — is this pixel proportionally close to grey — and gives
+ * the same answer at every exposure.
+ */
+const NEUTRAL_RELATIVE_SPREAD = 0.12;
 
 /** Below this, hue is mostly sensor/compression noise and would poison the neutral average. */
 const NEUTRAL_FLOOR = 12;
@@ -66,7 +97,7 @@ export function analyse({ data, pixels }) {
 
     const max = r > g ? (r > b ? r : b) : g > b ? g : b;
     const min = r < g ? (r < b ? r : b) : g < b ? g : b;
-    if (max - min <= NEUTRAL_SPREAD && max >= NEUTRAL_FLOOR) {
+    if (max >= NEUTRAL_FLOOR && max - min <= max * NEUTRAL_RELATIVE_SPREAD) {
       nR += r;
       nG += g;
       nB += b;
