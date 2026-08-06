@@ -8,6 +8,7 @@ import { buildModel, locate } from './scroll-model.js';
 import { TRANSITION_FNS, drawScene } from './transitions.js';
 import { kenBurnsScale } from './cover-fit.js';
 import { measureViewport, isRealResize } from './viewport.js';
+import { createGrain } from './grain.js';
 
 /**
  * Scroll follower coefficient, per frame at 60Hz.
@@ -28,6 +29,9 @@ const FOLLOW_TAU = -(1 / 60) / Math.log(1 - FOLLOW);
 const SNAP_FRACTION = 0.2;
 
 export function createRenderer({ canvas, manifest, store, onState }) {
+  // One offscreen tile set, built once. Regenerating noise per frame would cost a full-canvas
+  // random fill every frame and would dominate the very frame budget this renderer measures.
+  const grain = createGrain({ opacity: 0.035 });
   const ctx = canvas.getContext('2d', { alpha: false });
   if (!ctx) throw new Error('2d context unavailable');
 
@@ -106,6 +110,8 @@ export function createRenderer({ canvas, manifest, store, onState }) {
         drawScene(ctx, primaryBitmap, dw, dh, { scale: kenBurnsScale(at.primaryProgress) });
       }
     }
+
+    grain.draw(ctx, dw, dh);
 
     record(bucket, performance.now() - started);
     onState?.({ at, displayed, target, model, viewport });

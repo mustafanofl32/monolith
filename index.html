@@ -3,22 +3,40 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>MONOLITH</title>
-    <meta name="description" content="A study in scroll-driven light." />
+    <title>MONOLITH — a study in scroll-driven light</title>
+    <meta
+      name="description"
+      content="Seven images, seven scenes, one scroll. A study in scroll-driven light by Mostafa Nofal."
+    />
+    <meta name="theme-color" content="#0b0b0c" />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230b0b0c'/><rect x='6' y='3' width='4' height='10' fill='%23D4A04C'/></svg>" />
   </head>
   <body>
-    <!--
-      Phase 3: the engine only. No typography, no grain, no vignette, no preloader.
-      The sticky stage holds the canvas; the spacer below it supplies the scroll distance the
-      model asks for. Its height is set in JS from the resolved model, never from a CSS unit —
-      100dvh in particular tracks the collapsing mobile URL bar and would move every scene
-      boundary mid-gesture.
-    -->
-    <div class="stage" data-stage>
-      <canvas data-canvas></canvas>
+    <div class="preloader" data-preloader>
+      <span class="preloader__count" data-count>000</span>
     </div>
-    <div class="spacer" data-spacer></div>
+
+    <div class="film" data-film>
+      <div class="stage" data-stage>
+        <canvas data-canvas></canvas>
+        <!-- Static, CSS-only, no per-frame cost. Sits above the canvas and below the type. -->
+        <div class="vignette" aria-hidden="true"></div>
+        <div class="type" data-type></div>
+      </div>
+      <div class="spacer" data-spacer></div>
+    </div>
+
+    <!--
+      The written version. Present in the markup rather than injected, so the piece has content
+      with no JavaScript and for anything that cannot run the canvas at all.
+    -->
+    <noscript>
+      <div class="fallback">
+        <h1>MONOLITH</h1>
+        <p>A study in scroll-driven light — seven images, seven scenes, driven by scroll position.</p>
+        <p>This piece needs JavaScript to composite its scenes. Mostafa Nofal — 2026</p>
+      </div>
+    </noscript>
 
     <script type="module" src="/src/main.js"></script>
   </body>
